@@ -231,10 +231,17 @@ class OutreachBuilder:
         items = row["판매가능_아이템"] or row["다루는_아이템"] or "일본 쇼핑 아이템"
         first_item = items.split(",")[0].strip()
 
+        # 조회수가 없는 경로(PostResolver)에서 "조회수 0회"라고 쓰면 안 됩니다.
+        if row["대표_영상_조회수"]:
+            reaction = f"조회수 {row['대표_영상_조회수']:,}회 나온 거 보고 연락드려요."
+        elif row["평균_좋아요"]:
+            reaction = f"좋아요 {int(row['평균_좋아요']):,}개 나온 거 보고 연락드려요."
+        else:
+            reaction = "반응이 좋아 보여서 연락드려요."
+
         dm = (
             f"안녕하세요 {row['username']}님, 일본 상품 구매대행 사이트를 운영하는 {self.brand}입니다.\n"
-            f"'{first_item}' 소개해주신 릴스({row['대표_영상']}) 잘 봤습니다. "
-            f"조회수 {row['대표_영상_조회수']:,}회 나온 거 보고 연락드려요.\n"
+            f"'{first_item}' 소개해주신 릴스({row['대표_영상']}) 잘 봤습니다. {reaction}\n"
             f"팔로워분들이 '이거 어디서 사요?' 물어보실 것 같은데, "
             f"저희가 현지에서 직접 소싱해서 {self.site} 에서 판매 중입니다.\n"
             f"・제휴 링크 커미션 (판매액의 ◯%)\n"

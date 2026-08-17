@@ -18,6 +18,10 @@ __pycache__/
 ig_session.json
 ig_cookies.json
 results/
+# 단, 수집 산출물 샘플은 추적합니다.
+!results/japan_haul/
+!results/japan_haul/*.csv
+!results/japan_haul/*.txt
 
 # Mac/VSCode
 .DS_Store
