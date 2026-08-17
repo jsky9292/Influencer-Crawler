@@ -3,10 +3,12 @@
 
 from instagrapi import Client
 import json
+import os
 
-# 로그인 정보 입력
-INSTAGRAM_USERNAME = "allmak0814"
-INSTAGRAM_PASSWORD = "mediacom1220!@"
+# 로그인 정보는 환경변수로 주입합니다. (소스에 하드코딩 금지)
+#   export IG_USERNAME="..." IG_PASSWORD="..."
+INSTAGRAM_USERNAME = os.environ["IG_USERNAME"]
+INSTAGRAM_PASSWORD = os.environ["IG_PASSWORD"]
 
 TARGET_USERNAME = "2_jaemyung"  # 수집 대상 계정명 (예시)
 POST_LIMIT = 100  # 가져올 게시물 수

@@ -2,13 +2,15 @@
 
 import instaloader
 import csv
+import os
 import time
 import random
 
 def fetch_posts(username, max_count=20):
     L = instaloader.Instaloader()
-    # 로그인 필요하면 아래 주석 해제 후 정보 입력
-    L.login('allmak0814', 'mediacom1220!@')
+    # 로그인 정보는 환경변수로 주입합니다. (소스에 하드코딩 금지)
+    #   export IG_USERNAME="..." IG_PASSWORD="..."
+    L.login(os.environ["IG_USERNAME"], os.environ["IG_PASSWORD"])
     profile = instaloader.Profile.from_username(L.context, username)
 
     results = []

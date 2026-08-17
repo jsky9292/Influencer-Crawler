@@ -11,6 +11,14 @@ __pycache__/
 *.config
 *.json
 
+# 단, 코드에 필요한 사전/설정 JSON은 추적합니다.
+!Instagram/japan_haul_keywords.json
+
+# 로그인 세션/쿠키는 절대 커밋 금지
+ig_session.json
+ig_cookies.json
+results/
+
 # Mac/VSCode
 .DS_Store
 .vscode/
