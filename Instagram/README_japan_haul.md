@@ -24,7 +24,44 @@
 `i.instagram.com/api/v1/tags/web_info/`를 사용합니다. 유효한 로그인 쿠키가 없으면
 구조적으로 절대 동작하지 않습니다.
 
-## 3. 실행 방법
+## 3. 수집 축: 해시태그 + 검색어
+
+두 축을 **같이** 돌리는 걸 권장합니다 (`--mode both`, 기본값).
+
+| 모드 | 무엇을 훑나 | 강점 | 약점 |
+|---|---|---|---|
+| `hashtag` | `#일본여행필수템` 태그 피드 | 의도가 명확해 정확도 높음 | 태그를 성실히 다는 계정만 잡힘 |
+| `keyword` | `"돈키호테 쇼핑리스트"` 자연어 검색 | **해시태그 없이 캡션에만 언급한 릴스**까지 잡힘 | 관련 없는 게시물 섞임 |
+| `both` | 둘 다 | 커버리지 최대 | 쿼리 수만큼 비용 증가 |
+
+기본 시드는 해시태그 12개 + 검색어 10개 = **쿼리 22개**입니다.
+
+같은 게시물이 여러 쿼리에서 잡히면 중복 제거하되 `중복_쿼리수` 컬럼에 몇 개 쿼리에서
+걸렸는지 기록합니다. 이 값이 높을수록 해당 주제의 핵심 게시물입니다.
+
+`--mode` 를 바꾸거나 시드를 직접 넘길 수 있습니다:
+
+```bash
+# 검색어만
+python JapanHaulCrawler.py --backend apify --mode keyword
+
+# 검색어 직접 지정
+python JapanHaulCrawler.py --backend apify --mode keyword \
+  --queries "돈키호테 쇼핑리스트" "일본 약국 추천템"
+
+# 해시태그 직접 지정
+python JapanHaulCrawler.py --backend apify --mode hashtag \
+  --tags 일본여행필수템 돈키호테필수템
+```
+
+### 백엔드별 keyword 모드 구현 차이
+
+- **apify**: 액터의 `keywordSearch: true` 플래그로 자연어 검색을 그대로 수행합니다.
+- **instagrapi**: 비공식 API에는 게시물 전문 검색이 없습니다. 대신
+  `search_hashtags(검색어)` 로 **연관 해시태그 상위 5개를 뽑아 확장 수집**합니다.
+  결과의 `resolved_tag` 컬럼에서 실제로 어떤 태그로 치환됐는지 확인할 수 있습니다.
+
+## 4. 실행 방법
 
 ### 방식 A — Apify (권장)
 
@@ -36,21 +73,21 @@
 pip install -r ../requirements.txt
 export APIFY_TOKEN="apify_api_xxxxxxxx"
 
-# 해시태그당 릴스 80건씩 수집
-python JapanHaulCrawler.py --backend apify --limit 80 --type reels
-
-# 태그를 직접 지정하고 싶을 때
-python JapanHaulCrawler.py --backend apify --tags 일본여행필수템 돈키호테쇼핑리스트 --limit 100
+# 해시태그 + 검색어 모두, 쿼리당 릴스 80건씩
+python JapanHaulCrawler.py --backend apify --mode both --limit 80 --type reels
 ```
 
 비용 감각: 액터 `apify/instagram-hashtag-scraper` 기준 유료 플랜 약 **$1.90 / 1,000건**,
-무료 플랜 $2.60 / 1,000건. 시드 태그 12개 × 80건 = 약 960건 ≈ **$2 내외**.
+무료 플랜 $2.60 / 1,000건.
+기본 시드 22쿼리 × 80건 = 최대 약 1,760건 ≈ **$3.5~4.5**.
+먼저 `--limit 20` (약 440건, $1 내외)으로 돌려 쿼리 성과를 본 뒤,
+잘 먹히는 쿼리만 남기고 `--limit`을 올리는 순서를 권장합니다.
 
 ### 방식 B — instagrapi (계정 로그인)
 
 ```bash
 export IG_USERNAME="..." IG_PASSWORD="..."
-python JapanHaulCrawler.py --backend instagrapi --limit 40
+python JapanHaulCrawler.py --backend instagrapi --mode both --limit 40
 ```
 
 주의사항:
@@ -59,17 +96,22 @@ python JapanHaulCrawler.py --backend instagrapi --limit 40
 - 태그 사이 랜덤 딜레이가 들어가 있습니다. 줄이지 마세요.
 - 한국 IP로 대량 요청 시 차단 확률이 높으므로 주거용(residential) 프록시를 권장합니다.
 
-## 4. 산출물
+## 5. 산출물
 
 `results/japan_haul/` 아래에 생성됩니다.
 
-- `raw_posts.json` — 백엔드 원본 응답 (재분석용)
+- `raw_posts.json` — 백엔드 원본 응답 (쿼리 출처 포함, 재분석용)
 - `japan_haul_items_<날짜>.csv` — **필수템 랭킹**
-  - 컬럼: 아이템 / 카테고리 / 언급_게시물수 / 총_좋아요+댓글 / 총_조회수 / 대표_영상(조회수 상위 3개 링크)
+  - 아이템 / 카테고리 / 언급_게시물수 / 총_좋아요+댓글 / 총_조회수 / 대표_영상(조회수 상위 3개 링크) / 발견_쿼리수 / 발견_쿼리
 - `japan_haul_videos_<날짜>.csv` — **영상(릴스) 리스트**
-  - 컬럼: post_type / url / username / view_count / like_count / comment_count / taken_at / 매칭_아이템 / source_tag / caption
+  - post_type / url / username / view_count / like_count / comment_count / taken_at / 매칭_아이템 / 아이템_개수 / source_mode / source_query / resolved_tag / 중복_쿼리수 / caption
+- `japan_haul_queries_<날짜>.csv` — **쿼리 성과표**
+  - 모드 / 쿼리 / 수집_게시물수 / 아이템_매칭_게시물수 / 매칭률 / 발굴_아이템수 / 총_조회수
 
-## 5. 아이템 사전 확장
+쿼리 성과표를 보고 시드를 다듬으세요. **매칭률이 낮은 쿼리는 돈만 쓰고 노이즈만 가져오므로
+`seed_hashtags` / `seed_keywords`에서 빼면 됩니다.**
+
+## 6. 아이템 사전 확장
 
 `japan_haul_keywords.json`의 `categories`에 항목을 추가하면 바로 반영됩니다.
 
@@ -84,12 +126,20 @@ python JapanHaulCrawler.py --backend instagrapi --limit 40
 훑어보면, 사전에 빠진 신상 아이템을 찾을 수 있습니다. 그것을 사전에 추가하고
 `raw_posts.json`으로 재집계하는 방식으로 사전을 키우는 것을 권장합니다.
 
-## 6. 시드 해시태그
+## 7. 시드 해시태그 & 검색어
 
-`japan_haul_keywords.json`의 `seed_hashtags` 참고. 기본값 12개:
+`japan_haul_keywords.json` 참고.
 
+**`seed_hashtags` (12개)**
 ```
 일본여행필수템, 일본쇼핑리스트, 돈키호테쇼핑리스트, 돈키호테필수템,
 일본드럭스토어, 일본여행쇼핑, 일본하울, 도쿄쇼핑,
 오사카쇼핑, 후쿠오카쇼핑, 일본편의점추천, 일본약국추천
+```
+
+**`seed_keywords` (10개)**
+```
+일본여행 필수템, 돈키호테 쇼핑리스트, 일본 드럭스토어 추천템, 일본 하울,
+일본 약국 추천템, 일본 편의점 추천, 일본 사올것, 일본 여행 살거리,
+오사카 쇼핑 추천, 도쿄 쇼핑 추천
 ```
