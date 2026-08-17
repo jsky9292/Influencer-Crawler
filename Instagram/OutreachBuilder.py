@@ -86,10 +86,19 @@ def tier_of(avg_views: float) -> str:
 
 
 class OutreachBuilder:
-    def __init__(self, videos_csv, keyword_file=KEYWORD_FILE, brand="(브랜드명)", site="(구매대행 사이트 URL)"):
+    def __init__(
+        self,
+        videos_csv,
+        keyword_file=KEYWORD_FILE,
+        brand="(브랜드명)",
+        site="(구매대행 사이트 URL)",
+        profiles_csv=None,
+    ):
         self.df = pd.read_csv(videos_csv)
         self.brand = brand
         self.site = site
+        # PostResolver --profiles 산출물. 있으면 팔로워 기반 지표를 쓸 수 있습니다.
+        self.profiles = pd.read_csv(profiles_csv) if profiles_csv else None
         with open(keyword_file, "r", encoding="utf-8") as f:
             config = json.load(f)
         self.regulation = {}
@@ -188,9 +197,34 @@ class OutreachBuilder:
                     "판매가능_아이템수": len(sellable),
                     "대표_영상": best["url"],
                     "대표_영상_조회수": int(best["view_count"] or 0),
+                    "최고_좋아요": int(likes.max()),
                 }
             )
-        return pd.DataFrame(rows)
+        agg = pd.DataFrame(rows)
+        return self._attach_followers(agg)
+
+    def _attach_followers(self, agg):
+        """
+        팔로워를 붙이고 '떡상 배수'를 계산합니다.
+
+        떡상 배수 = 최고 게시물 좋아요 / 팔로워.
+        1을 넘으면 팔로워 밖으로 퍼져나간 것이고, 값이 클수록 크게 터진 겁니다.
+        팔로워 1천인데 좋아요 3만이면 배수 30 — 작은 계정이지만 도달은 큽니다.
+        """
+        if self.profiles is None or agg.empty:
+            agg["팔로워"] = pd.NA
+            agg["떡상배수"] = pd.NA
+            return agg
+
+        cols = [c for c in ["username", "팔로워", "총_게시물수"] if c in self.profiles.columns]
+        agg = agg.merge(self.profiles[cols], on="username", how="left")
+        followers = pd.to_numeric(agg["팔로워"], errors="coerce")
+        agg["떡상배수"] = (agg["최고_좋아요"] / followers).round(2)
+        # 팔로워 대비 참여율. 조회수 대용치보다 이쪽이 정확합니다.
+        agg["팔로워대비_참여율_%"] = (
+            (agg["평균_좋아요"] + agg["평균_댓글"]) / followers * 100
+        ).round(2)
+        return agg
 
     # ------------------------------------------------------------------ #
     def score(self, agg):
@@ -203,6 +237,20 @@ class OutreachBuilder:
             return series.rank(pct=True) if series.nunique() > 1 else pd.Series(0.5, index=series.index)
 
         relevance = agg["아이템_언급_게시물수"] / agg["수집_게시물수"].replace(0, 1)
+
+        # 팔로워가 있으면 '떡상 배수'가 1순위 지표입니다.
+        # 팔로워 수 자체가 아니라, 팔로워 대비 얼마나 밖으로 퍼졌느냐가
+        # 작은 계정을 저비용으로 쓰는 근거이기 때문입니다.
+        if agg["떡상배수"].notna().any():
+            print("[INFO] 팔로워 데이터 있음 → 떡상배수 기준으로 점수 계산")
+            base = (
+                0.45 * pct(agg["떡상배수"].fillna(0))
+                + 0.25 * pct(agg["팔로워대비_참여율_%"].fillna(0))
+                + 0.15 * relevance
+                + 0.15 * pct(agg["판매가능_아이템수"])
+            ) * 100
+            agg["섭외점수"] = (base + (agg["거주추정"] == "일본거주").astype(float) * 8.0).clip(0, 100).round(1)
+            return agg.sort_values("섭외점수", ascending=False).reset_index(drop=True)
 
         # 조회수가 하나도 없으면(PostResolver 경로) 좋아요를 도달력 지표로,
         # 댓글/좋아요 비율을 참여도 지표로 대체합니다.
@@ -258,7 +306,8 @@ class OutreachBuilder:
         return dm
 
     # ------------------------------------------------------------------ #
-    def run(self, only_resident=False, top=None, output_dir="results/japan_haul"):
+    def run(self, only_resident=False, top=None, output_dir="results/japan_haul",
+            max_followers=None, min_viral=None):
         agg = self.score(self.aggregate())
         if agg.empty:
             print("[WARN] 집계할 계정이 없습니다.")
@@ -269,6 +318,16 @@ class OutreachBuilder:
         agg = agg[agg["추정언어"] != "ja"]
         if dropped:
             print(f"[INFO] 일본어 계정 {dropped}개 제외 (팔로워가 우리 고객이 아님)")
+
+        # 팔로워 상한 — DM이 실제로 읽히는 규모만 남깁니다.
+        if max_followers is not None:
+            known = agg["팔로워"].notna()
+            unknown_n = int((~known).sum())
+            agg = agg[known & (pd.to_numeric(agg["팔로워"], errors="coerce") <= max_followers)]
+            print(f"[INFO] 팔로워 {max_followers:,}명 이하만 유지 (팔로워 미확인 {unknown_n}개 제외)")
+        if min_viral is not None:
+            agg = agg[pd.to_numeric(agg["떡상배수"], errors="coerce") >= min_viral]
+            print(f"[INFO] 떡상배수 {min_viral} 이상만 유지")
 
         if only_resident:
             agg = agg[agg["거주추정"] == "일본거주"]
@@ -295,9 +354,12 @@ class OutreachBuilder:
 
         print(f"[저장] 섭외 리스트: {path} ({len(agg)}계정)")
         print(f"\n=== 섭외 우선순위 TOP {min(15, len(agg))} ===")
-        cols = ["username", "거주추정", "평균_좋아요", "평균_댓글", "댓글_좋아요_비_%", "판매가능_아이템수", "섭외점수"] \
-            if agg["총_조회수"].sum() == 0 else \
-            ["username", "거주추정", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
+        if agg["떡상배수"].notna().any():
+            cols = ["username", "팔로워", "최고_좋아요", "떡상배수", "팔로워대비_참여율_%", "섭외점수"]
+        elif agg["총_조회수"].sum() == 0:
+            cols = ["username", "거주추정", "평균_좋아요", "평균_댓글", "댓글_좋아요_비_%", "판매가능_아이템수", "섭외점수"]
+        else:
+            cols = ["username", "거주추정", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
         print(agg.head(15)[cols].to_string(index=False))
         print(
             f"\n[주의] 자동 발송 기능은 없습니다. 하루 10~20건씩 직접 보내세요.\n"
@@ -310,14 +372,20 @@ def main():
     parser.add_argument("--videos", required=True, help="JapanHaulCrawler가 만든 japan_haul_videos_*.csv 경로")
     parser.add_argument("--only-resident", action="store_true",
                         help="일본 거주로 보이는 계정만 (소싱 파트너 겸업 제안용)")
+    parser.add_argument("--profiles", help="PostResolver --profiles 산출 CSV. 팔로워/떡상배수를 씁니다")
+    parser.add_argument("--max-followers", type=int,
+                        help="팔로워 상한. DM이 실제로 읽히는 규모만 남길 때 (예: 5000)")
+    parser.add_argument("--min-viral", type=float,
+                        help="떡상배수 하한. 최고 좋아요/팔로워가 이 값 이상인 계정만 (예: 5)")
     parser.add_argument("--top", type=int, help="상위 N개만 출력")
     parser.add_argument("--brand", default="(브랜드명)")
     parser.add_argument("--site", default="(구매대행 사이트 URL)")
     parser.add_argument("--output", default="results/japan_haul")
     args = parser.parse_args()
 
-    OutreachBuilder(args.videos, brand=args.brand, site=args.site).run(
-        only_resident=args.only_resident, top=args.top, output_dir=args.output
+    OutreachBuilder(args.videos, brand=args.brand, site=args.site, profiles_csv=args.profiles).run(
+        only_resident=args.only_resident, top=args.top, output_dir=args.output,
+        max_followers=args.max_followers, min_viral=args.min_viral,
     )
 
 

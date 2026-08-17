@@ -148,16 +148,29 @@ def resolve_profile(username, session=None, timeout=20):
     }
 
 
-def resolve_profiles(usernames, sleep_sec=3.0):
+def resolve_profiles(usernames, sleep_sec=30.0, out_path=None):
+    """
+    프로필 엔드포인트는 레이트리밋이 빡빡합니다. 302가 연속으로 나오면
+    간격을 배로 늘려가며 식히고, 성공하면 원래 간격으로 돌아옵니다.
+    중간에 끊겨도 건진 만큼은 남도록 성공할 때마다 저장합니다.
+    """
     sess = requests.Session()
-    rows = []
+    rows, cooldown, consecutive_fail = [], sleep_sec, 0
     for i, name in enumerate(usernames, 1):
         row = resolve_profile(name, session=sess)
         if row:
             rows.append(row)
+            consecutive_fail, cooldown = 0, sleep_sec
             print(f"[OK {i}/{len(usernames)}] @{name} 팔로워 {row['팔로워']:,}")
+            if out_path:
+                pd.DataFrame(rows).to_csv(out_path, index=False, encoding="utf-8-sig")
+        else:
+            consecutive_fail += 1
+            if consecutive_fail >= 2:
+                cooldown = min(cooldown * 2, 600)
+                print(f"       연속 실패 {consecutive_fail}회 → 대기 {cooldown:.0f}초로 상향")
         if i < len(usernames):
-            time.sleep(random.uniform(sleep_sec, sleep_sec * 2))
+            time.sleep(random.uniform(cooldown, cooldown * 1.3))
     return pd.DataFrame(rows)
 
 
@@ -179,19 +192,19 @@ def main():
     parser = argparse.ArgumentParser(description="인스타 게시물 URL -> 계정/지표 해석 (무토큰)")
     parser.add_argument("--url", action="append", default=[], help="게시물 URL (여러 번 지정 가능)")
     parser.add_argument("--urls", help="URL이 줄단위로 든 텍스트 파일")
-    parser.add_argument("--profiles", help="계정명이 줄단위로 든 파일. 팔로워 수를 가져옵니다")
+    parser.add_argument("--profiles", help="계정명이 줄단위로 든 파일. 팔로워 수를 가져옵니다 (딜레이 최소 30초 강제)")
     parser.add_argument("--sleep", type=float, default=3.0, help="요청 간 최소 딜레이(초)")
     parser.add_argument("--out", default="results/japan_haul/resolved_posts.csv")
     args = parser.parse_args()
 
     if args.profiles:
         names = [ln.strip().lstrip("@") for ln in Path(args.profiles).read_text().splitlines() if ln.strip()]
-        df = resolve_profiles(list(dict.fromkeys(names)), sleep_sec=args.sleep)
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        df = resolve_profiles(list(dict.fromkeys(names)), sleep_sec=max(args.sleep, 30.0), out_path=out)
         if df.empty:
             print("[WARN] 해석된 프로필이 없습니다.")
             return
-        out = Path(args.out)
-        out.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(out, index=False, encoding="utf-8-sig")
         print(f"\n[저장] {out} (계정 {len(df)}개)")
         return
