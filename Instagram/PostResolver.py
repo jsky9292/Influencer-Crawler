@@ -41,6 +41,10 @@ STATS_RE = re.compile(
     r"([\d.,]+[KM]?)\s+likes?,\s*([\d.,]+[KM]?)\s+comments?\s*-\s*(\S+)\s+on\s+([A-Za-z]+\s+\d+,\s+\d{4})"
 )
 SHORTCODE_RE = re.compile(r"instagram\.com/(?:[\w.]+/)?(p|reel|tv)/([A-Za-z0-9_-]+)")
+# 프로필 페이지: "63K Followers, 1,874 Following, 693 Posts - See Instagram photos ..."
+PROFILE_RE = re.compile(
+    r"([\d.,]+[KM]?)\s+Followers?,\s*([\d.,]+[KM]?)\s+Following,\s*([\d.,]+[KM]?)\s+Posts?"
+)
 
 
 def parse_count(raw: str) -> int:
@@ -103,6 +107,60 @@ def resolve(url, session=None, timeout=20):
     }
 
 
+def resolve_profile(username, session=None, timeout=20):
+    """
+    계정 프로필에서 팔로워 수를 가져옵니다.
+
+    팔로워 수는 섭외 판단의 핵심인데 게시물 og 메타에는 없습니다.
+    프로필 페이지 og:description에는 들어 있습니다.
+    """
+    sess = session or requests
+    url = f"https://www.instagram.com/{username}/"
+    try:
+        resp = sess.get(url, headers={"User-Agent": CRAWLER_UA}, timeout=timeout, allow_redirects=False)
+    except requests.exceptions.RequestException as e:
+        print(f"[FAIL] @{username}: {e}")
+        return None
+    if resp.status_code != 200:
+        # 302는 대체로 레이트리밋이거나 계정 상태 변경입니다.
+        print(f"[FAIL] @{username}: status {resp.status_code}")
+        return None
+
+    desc_m = OG_DESC_RE.search(resp.text)
+    if not desc_m:
+        print(f"[SKIP] @{username}: og:description 없음")
+        return None
+    desc = html.unescape(desc_m.group(1))
+    stats = PROFILE_RE.search(desc)
+    if not stats:
+        print(f"[SKIP] @{username}: 팔로워 파싱 실패")
+        return None
+
+    followers, following, posts = stats.groups()
+    title_m = OG_TITLE_RE.search(resp.text)
+    display = html.unescape(title_m.group(1)).split(" (@")[0] if title_m else ""
+    return {
+        "username": username,
+        "표시이름": display,
+        "팔로워": parse_count(followers),
+        "팔로잉": parse_count(following),
+        "총_게시물수": parse_count(posts),
+    }
+
+
+def resolve_profiles(usernames, sleep_sec=3.0):
+    sess = requests.Session()
+    rows = []
+    for i, name in enumerate(usernames, 1):
+        row = resolve_profile(name, session=sess)
+        if row:
+            rows.append(row)
+            print(f"[OK {i}/{len(usernames)}] @{name} 팔로워 {row['팔로워']:,}")
+        if i < len(usernames):
+            time.sleep(random.uniform(sleep_sec, sleep_sec * 2))
+    return pd.DataFrame(rows)
+
+
 def resolve_many(urls, sleep_sec=3.0):
     sess = requests.Session()
     rows = []
@@ -121,9 +179,22 @@ def main():
     parser = argparse.ArgumentParser(description="인스타 게시물 URL -> 계정/지표 해석 (무토큰)")
     parser.add_argument("--url", action="append", default=[], help="게시물 URL (여러 번 지정 가능)")
     parser.add_argument("--urls", help="URL이 줄단위로 든 텍스트 파일")
+    parser.add_argument("--profiles", help="계정명이 줄단위로 든 파일. 팔로워 수를 가져옵니다")
     parser.add_argument("--sleep", type=float, default=3.0, help="요청 간 최소 딜레이(초)")
     parser.add_argument("--out", default="results/japan_haul/resolved_posts.csv")
     args = parser.parse_args()
+
+    if args.profiles:
+        names = [ln.strip().lstrip("@") for ln in Path(args.profiles).read_text().splitlines() if ln.strip()]
+        df = resolve_profiles(list(dict.fromkeys(names)), sleep_sec=args.sleep)
+        if df.empty:
+            print("[WARN] 해석된 프로필이 없습니다.")
+            return
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(out, index=False, encoding="utf-8-sig")
+        print(f"\n[저장] {out} (계정 {len(df)}개)")
+        return
 
     urls = list(args.url)
     if args.urls:
