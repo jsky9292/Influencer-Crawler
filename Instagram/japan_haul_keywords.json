@@ -1,5 +1,13 @@
 {
   "_comment": "일본여행 필수템(하울) 아이템 사전. 캡션에서 제품명을 매칭할 때 사용합니다. aliases에 한글/일본어/영문 표기를 모두 넣으면 매칭률이 올라갑니다.",
+
+  "_regulation_comment": "regulation = 한국에서 구매대행으로 '판매'할 때의 규제 등급. 개인이 직구로 사는 것과 다릅니다. 반드시 관세사/식약처 확인 후 확정하세요. 이 값은 1차 스크리닝용 참고치입니다.",
+  "regulation_levels": {
+    "blocked": "판매 불가 또는 사실상 불가. 의약품은 약사법상 온라인 판매·알선·광고 자체가 위반. 주류는 통신판매 제한.",
+    "restricted": "판매 가능하나 요건 있음. 화장품(화장품책임판매업 등록), 식품·건기식(식약처 수입신고), 목록통관 배제 → 간이/일반통관 필요.",
+    "ok": "일반 공산품. KC 인증 대상(전기용품·어린이제품) 여부만 확인하면 진입 장벽 낮음."
+  },
+
   "seed_hashtags": [
     "일본여행필수템",
     "일본쇼핑리스트",
@@ -14,6 +22,7 @@
     "일본편의점추천",
     "일본약국추천"
   ],
+
   "_seed_keywords_comment": "자연어 검색어. 해시태그를 안 달았거나 캡션에만 제품을 언급한 릴스를 잡습니다.",
   "seed_keywords": [
     "일본여행 필수템",
@@ -27,62 +36,63 @@
     "오사카 쇼핑 추천",
     "도쿄 쇼핑 추천"
   ],
+
   "categories": {
     "의약품/건강": [
-      { "name": "카베진", "aliases": ["카베진", "캬베진", "キャベジン", "cabagin"] },
-      { "name": "샤론파스", "aliases": ["샤론파스", "サロンパス", "salonpas"] },
-      { "name": "휴족시간", "aliases": ["휴족시간", "휴족타임", "休足時間"] },
-      { "name": "로이히츠보코", "aliases": ["로이히츠보코", "동전파스", "ロイヒつぼ膏"] },
-      { "name": "이브퀵", "aliases": ["이브퀵", "이브에이", "イブクイック", "eve quick"] },
-      { "name": "오타이산", "aliases": ["오타이산", "太田胃散"] },
-      { "name": "사카무케아", "aliases": ["사카무케아", "사카무케", "サカムケア"] },
-      { "name": "메구리즘", "aliases": ["메구리즘", "온열안대", "めぐりズム", "megurhythm"] },
-      { "name": "아네론", "aliases": ["아네론", "멀미약", "アネロン"] },
-      { "name": "나이시토루", "aliases": ["나이시토루", "ナイシトール"] },
-      { "name": "바브 입욕제", "aliases": ["바브입욕제", "입욕제", "バブ", "kao bub"] },
-      { "name": "액티브 인테그레이트 아이드롭", "aliases": ["산테", "아이드롭", "안약", "サンテ", "rohto"] }
+      { "name": "카베진", "regulation": "blocked", "aliases": ["카베진", "캬베진", "キャベジン", "cabagin"] },
+      { "name": "샤론파스", "regulation": "blocked", "aliases": ["샤론파스", "サロンパス", "salonpas"] },
+      { "name": "로이히츠보코", "regulation": "blocked", "aliases": ["로이히츠보코", "동전파스", "ロイヒつぼ膏"] },
+      { "name": "이브퀵", "regulation": "blocked", "aliases": ["이브퀵", "이브에이", "イブクイック", "eve quick"] },
+      { "name": "오타이산", "regulation": "blocked", "aliases": ["오타이산", "太田胃散"] },
+      { "name": "아네론", "regulation": "blocked", "aliases": ["아네론", "멀미약", "アネロン"] },
+      { "name": "나이시토루", "regulation": "blocked", "aliases": ["나이시토루", "ナイシトール"] },
+      { "name": "산테 안약", "regulation": "blocked", "aliases": ["산테", "아이드롭", "안약", "サンテ", "rohto"] },
+      { "name": "휴족시간", "regulation": "restricted", "aliases": ["휴족시간", "휴족타임", "休足時間"] },
+      { "name": "사카무케아", "regulation": "restricted", "aliases": ["사카무케아", "사카무케", "サカムケア"] },
+      { "name": "메구리즘", "regulation": "restricted", "aliases": ["메구리즘", "온열안대", "めぐりズム", "megurhythm"] },
+      { "name": "바브 입욕제", "regulation": "restricted", "aliases": ["바브입욕제", "입욕제", "バブ", "kao bub"] }
     ],
     "화장품/뷰티": [
-      { "name": "퍼펙트휩", "aliases": ["퍼펙트휩", "퍼펙트휨", "パーフェクトホイップ", "perfect whip"] },
-      { "name": "하다라보", "aliases": ["하다라보", "肌ラボ", "hadalabo"] },
-      { "name": "캔메이크", "aliases": ["캔메이크", "캔메이끄", "キャンメイク", "canmake"] },
-      { "name": "DHC 립크림", "aliases": ["dhc립", "디에이치씨립", "dhc lip"] },
-      { "name": "비오레 UV", "aliases": ["비오레uv", "비오레", "ビオレ", "biore"] },
-      { "name": "아넷사", "aliases": ["아넷사", "아네사", "アネッサ", "anessa"] },
-      { "name": "큐렐", "aliases": ["큐렐", "キュレル", "curel"] },
-      { "name": "이하다", "aliases": ["이하다", "イハダ", "ihada"] },
-      { "name": "센카", "aliases": ["센카", "専科", "senka"] },
-      { "name": "케이트 아이브로우", "aliases": ["케이트아이브로우", "케이트", "kate"] },
-      { "name": "오페라 립틴트", "aliases": ["오페라립", "오페라틴트", "opera lip"] },
-      { "name": "루루룬 마스크팩", "aliases": ["루루룬", "ルルルン", "lululun"] }
+      { "name": "퍼펙트휩", "regulation": "restricted", "aliases": ["퍼펙트휩", "퍼펙트휨", "パーフェクトホイップ", "perfect whip"] },
+      { "name": "하다라보", "regulation": "restricted", "aliases": ["하다라보", "肌ラボ", "hadalabo"] },
+      { "name": "캔메이크", "regulation": "restricted", "aliases": ["캔메이크", "캔메이끄", "キャンメイク", "canmake"] },
+      { "name": "DHC 립크림", "regulation": "restricted", "aliases": ["dhc립", "디에이치씨립", "dhc lip"] },
+      { "name": "비오레 UV", "regulation": "restricted", "aliases": ["비오레uv", "비오레", "ビオレ", "biore"] },
+      { "name": "아넷사", "regulation": "restricted", "aliases": ["아넷사", "아네사", "アネッサ", "anessa"] },
+      { "name": "큐렐", "regulation": "restricted", "aliases": ["큐렐", "キュレル", "curel"] },
+      { "name": "이하다", "regulation": "restricted", "aliases": ["이하다", "イハダ", "ihada"] },
+      { "name": "센카", "regulation": "restricted", "aliases": ["센카", "専科", "senka"] },
+      { "name": "케이트 아이브로우", "regulation": "restricted", "aliases": ["케이트아이브로우", "케이트", "kate"] },
+      { "name": "오페라 립틴트", "regulation": "restricted", "aliases": ["오페라립", "오페라틴트", "opera lip"] },
+      { "name": "루루룬 마스크팩", "regulation": "restricted", "aliases": ["루루룬", "ルルルン", "lululun"] }
     ],
     "간식/식품": [
-      { "name": "로이스 생초콜릿", "aliases": ["로이스", "royce", "ロイズ"] },
-      { "name": "시로이코이비토", "aliases": ["시로이코이비토", "하얀연인", "白い恋人"] },
-      { "name": "도쿄바나나", "aliases": ["도쿄바나나", "동경바나나", "東京ばな奈", "tokyo banana"] },
-      { "name": "킷캣", "aliases": ["킷캣", "킷캇", "키캣", "kitkat", "キットカット"] },
-      { "name": "자가리코", "aliases": ["자가리코", "じゃがりこ", "jagarico"] },
-      { "name": "자가비", "aliases": ["자가비", "じゃがビー", "jagabee"] },
-      { "name": "카라멜콘", "aliases": ["카라멜콘", "캬라멜콘", "キャラメルコーン"] },
-      { "name": "코로로 젤리", "aliases": ["코로로", "コロロ", "kororo"] },
-      { "name": "곤약젤리", "aliases": ["곤약젤리", "こんにゃくゼリー"] },
-      { "name": "고쿠마로 카레", "aliases": ["고쿠마로", "일본카레", "こくまろ"] },
-      { "name": "아지노모토 냉동교자", "aliases": ["냉동교자", "아지노모토", "餃子"] },
-      { "name": "홋카이도 치즈스틱", "aliases": ["치즈스틱", "유키지루시", "雪印"] }
+      { "name": "로이스 생초콜릿", "regulation": "restricted", "aliases": ["로이스", "royce", "ロイズ"] },
+      { "name": "시로이코이비토", "regulation": "restricted", "aliases": ["시로이코이비토", "하얀연인", "白い恋人"] },
+      { "name": "도쿄바나나", "regulation": "restricted", "aliases": ["도쿄바나나", "동경바나나", "東京ばな奈", "tokyo banana"] },
+      { "name": "킷캣", "regulation": "restricted", "aliases": ["킷캣", "킷캇", "키캣", "kitkat", "キットカット"] },
+      { "name": "자가리코", "regulation": "restricted", "aliases": ["자가리코", "じゃがりこ", "jagarico"] },
+      { "name": "자가비", "regulation": "restricted", "aliases": ["자가비", "じゃがビー", "jagabee"] },
+      { "name": "카라멜콘", "regulation": "restricted", "aliases": ["카라멜콘", "캬라멜콘", "キャラメルコーン"] },
+      { "name": "코로로 젤리", "regulation": "restricted", "aliases": ["코로로", "コロロ", "kororo"] },
+      { "name": "곤약젤리", "regulation": "restricted", "aliases": ["곤약젤리", "こんにゃくゼリー"] },
+      { "name": "고쿠마로 카레", "regulation": "restricted", "aliases": ["고쿠마로", "일본카레", "こくまろ"] },
+      { "name": "아지노모토 냉동교자", "regulation": "blocked", "aliases": ["냉동교자", "아지노모토", "餃子"] },
+      { "name": "홋카이도 치즈스틱", "regulation": "restricted", "aliases": ["치즈스틱", "유키지루시", "雪印"] }
     ],
     "주류/음료": [
-      { "name": "스트롱제로", "aliases": ["스트롱제로", "ストロングゼロ", "strong zero"] },
-      { "name": "프리미엄 몰츠", "aliases": ["프리미엄몰츠", "프렘몰", "プレミアムモルツ"] },
-      { "name": "하이볼 캔", "aliases": ["하이볼", "카쿠하이볼", "ハイボール"] },
-      { "name": "호로요이", "aliases": ["호로요이", "ほろよい", "horoyoi"] }
+      { "name": "스트롱제로", "regulation": "blocked", "aliases": ["스트롱제로", "ストロングゼロ", "strong zero"] },
+      { "name": "프리미엄 몰츠", "regulation": "blocked", "aliases": ["프리미엄몰츠", "프렘몰", "プレミアムモルツ"] },
+      { "name": "하이볼 캔", "regulation": "blocked", "aliases": ["하이볼", "카쿠하이볼", "ハイボール"] },
+      { "name": "호로요이", "regulation": "blocked", "aliases": ["호로요이", "ほろよい", "horoyoi"] }
     ],
     "생활/잡화": [
-      { "name": "사스케 손톱깎이", "aliases": ["손톱깎이", "사스케", "쓰메키리", "爪切り"] },
-      { "name": "가오 비오레 데오드란트 시트", "aliases": ["데오드란트시트", "바디시트", "사라사라", "ボディシート"] },
-      { "name": "무인양품", "aliases": ["무인양품", "무지", "無印良品", "muji"] },
-      { "name": "다이소 일본", "aliases": ["일본다이소", "다이소재팬", "daiso japan"] },
-      { "name": "니토리", "aliases": ["니토리", "ニトリ", "nitori"] },
-      { "name": "돈키호테 PB", "aliases": ["정열가격", "情熱価格", "돈키pb"] }
+      { "name": "사스케 손톱깎이", "regulation": "ok", "aliases": ["손톱깎이", "사스케", "쓰메키리", "爪切り"] },
+      { "name": "가오 비오레 데오드란트 시트", "regulation": "restricted", "aliases": ["데오드란트시트", "바디시트", "사라사라", "ボディシート"] },
+      { "name": "무인양품", "regulation": "ok", "aliases": ["무인양품", "무지", "無印良品", "muji"] },
+      { "name": "다이소 일본", "regulation": "ok", "aliases": ["일본다이소", "다이소재팬", "daiso japan"] },
+      { "name": "니토리", "regulation": "ok", "aliases": ["니토리", "ニトリ", "nitori"] },
+      { "name": "돈키호테 PB", "regulation": "ok", "aliases": ["정열가격", "情熱価格", "돈키pb"] }
     ]
   }
 }

@@ -72,12 +72,16 @@ class JapanHaulCrawler:
         self.hashtags = self.config.get("seed_hashtags", [])
         self.keywords = self.config.get("seed_keywords", [])
 
-        # {정규화 별칭: (아이템명, 카테고리)}
+        # {정규화 별칭: (아이템명, 카테고리, 규제등급)}
         self.alias_map = {}
         for category, items in self.config.get("categories", {}).items():
             for item in items:
                 for alias in item.get("aliases", []):
-                    self.alias_map[normalize(alias)] = (item["name"], category)
+                    self.alias_map[normalize(alias)] = (
+                        item["name"],
+                        category,
+                        item.get("regulation", "unknown"),
+                    )
 
     # ------------------------------------------------------------------ #
     # 쿼리 구성
@@ -271,24 +275,25 @@ class JapanHaulCrawler:
     # 아이템 추출 / 랭킹
     # ------------------------------------------------------------------ #
     def match_items(self, caption):
-        """캡션에서 사전에 등록된 아이템을 찾아 (아이템명, 카테고리) 리스트로 반환."""
+        """캡션에서 사전에 등록된 아이템을 찾아 (아이템명, 카테고리, 규제등급) 리스트로 반환."""
         norm = normalize(caption)
         hits = {}
-        for alias, (name, category) in self.alias_map.items():
+        for alias, (name, category, regulation) in self.alias_map.items():
             if alias and alias in norm:
-                hits[name] = category
-        return sorted(hits.items())
+                hits[name] = (category, regulation)
+        return sorted((name, cat, reg) for name, (cat, reg) in hits.items())
 
     def build_item_ranking(self, posts):
         stats = {}
         for p in posts:
             engagement = (p["like_count"] or 0) + (p["comment_count"] or 0)
-            for name, category in self.match_items(p["caption"]):
+            for name, category, regulation in self.match_items(p["caption"]):
                 s = stats.setdefault(
                     name,
                     {
                         "아이템": name,
                         "카테고리": category,
+                        "규제등급": regulation,
                         "언급_게시물수": 0,
                         "총_좋아요+댓글": 0,
                         "총_조회수": 0,
@@ -321,7 +326,9 @@ class JapanHaulCrawler:
     def build_video_list(self, posts):
         rows = []
         for p in posts:
-            items = [name for name, _ in self.match_items(p["caption"])]
+            matched = self.match_items(p["caption"])
+            items = [name for name, _, _ in matched]
+            sellable = [name for name, _, reg in matched if reg in ("ok", "restricted")]
             rows.append(
                 {
                     "post_type": p["post_type"],
@@ -333,6 +340,8 @@ class JapanHaulCrawler:
                     "taken_at": p["taken_at"],
                     "매칭_아이템": ", ".join(items),
                     "아이템_개수": len(items),
+                    "판매가능_아이템": ", ".join(sellable),
+                    "판매가능_개수": len(sellable),
                     "source_mode": p["source_mode"],
                     "source_query": p["source_query"],
                     "resolved_tag": p["resolved_tag"],
@@ -366,7 +375,7 @@ class JapanHaulCrawler:
             items = self.match_items(p["caption"])
             if items:
                 s["아이템_매칭_게시물수"] += 1
-            s["_items"].update(name for name, _ in items)
+            s["_items"].update(name for name, _, _ in items)
 
         rows = []
         for s in stats.values():
@@ -402,7 +411,7 @@ class JapanHaulCrawler:
         items_df = outputs["items"][0]
         if not items_df.empty:
             print("\n=== 필수템 TOP 15 ===")
-            cols = ["아이템", "카테고리", "언급_게시물수", "총_조회수", "발견_쿼리수"]
+            cols = ["아이템", "카테고리", "규제등급", "언급_게시물수", "총_조회수", "발견_쿼리수"]
             print(items_df.head(15)[cols].to_string(index=False))
 
         query_df = outputs["queries"][0]
