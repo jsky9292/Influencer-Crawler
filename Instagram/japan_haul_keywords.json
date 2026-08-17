@@ -86,13 +86,32 @@
       { "name": "하이볼 캔", "regulation": "blocked", "aliases": ["하이볼", "카쿠하이볼", "ハイボール"] },
       { "name": "호로요이", "regulation": "blocked", "aliases": ["호로요이", "ほろよい", "horoyoi"] }
     ],
+    "문구": [
+      { "name": "제트스트림 볼펜", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY / 미쓰비시연필 대리점", "aliases": ["제트스트림", "젯스트림", "ジェットストリーム", "jetstream"] },
+      { "name": "프릭션 지워지는펜", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY / 파일럿 대리점", "aliases": ["프릭션", "프릭션펜", "フリクション", "frixion"] },
+      { "name": "사라사 클립", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY", "aliases": ["사라사클립", "사라사", "サラサクリップ", "sarasa"] },
+      { "name": "마일드라이너 형광펜", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY", "aliases": ["마일드라이너", "マイルドライナー", "mildliner"] },
+      { "name": "쿠루토가 샤프", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY", "aliases": ["쿠루토가", "クルトガ", "kurutoga"] },
+      { "name": "미도리 MD노트", "regulation": "ok", "sourcing": "SUPER DELIVERY / 아마존재팬", "aliases": ["md노트", "미도리노트", "ミドリ", "midori"] }
+    ],
+    "미용소도구(비전기)": [
+      { "name": "손톱깎이 (스와다/카이)", "regulation": "ok", "sourcing": "SUPER DELIVERY / 제조사 직거래", "aliases": ["손톱깎이", "사스케", "스와다", "쓰메키리", "爪切り", "suwada"] },
+      { "name": "카이 눈썹칼", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY", "aliases": ["눈썹칼", "카이눈썹", "貝印", "kai"] },
+      { "name": "귀이개 (미미카키)", "regulation": "ok", "sourcing": "NETSEA / 돈키호테 PB", "aliases": ["귀이개", "미미카키", "耳かき"] }
+    ],
     "생활/잡화": [
-      { "name": "사스케 손톱깎이", "regulation": "ok", "aliases": ["손톱깎이", "사스케", "쓰메키리", "爪切り"] },
-      { "name": "가오 비오레 데오드란트 시트", "regulation": "restricted", "aliases": ["데오드란트시트", "바디시트", "사라사라", "ボディシート"] },
-      { "name": "무인양품", "regulation": "ok", "aliases": ["무인양품", "무지", "無印良品", "muji"] },
-      { "name": "다이소 일본", "regulation": "ok", "aliases": ["일본다이소", "다이소재팬", "daiso japan"] },
-      { "name": "니토리", "regulation": "ok", "aliases": ["니토리", "ニトリ", "nitori"] },
-      { "name": "돈키호테 PB", "regulation": "ok", "aliases": ["정열가격", "情熱価格", "돈키pb"] }
+      { "name": "게키오치군 멜라민스펀지", "regulation": "ok", "sourcing": "NETSEA / SUPER DELIVERY", "aliases": ["게키오치", "격락군", "멜라민스펀지", "激落ちくん"] },
+      { "name": "수납케이스 (폴리프로필렌)", "regulation": "ok", "sourcing": "SUPER DELIVERY / 니토리 도매", "aliases": ["수납케이스", "정리함", "収納ケース"] },
+      { "name": "가오 비오레 데오드란트 시트", "regulation": "restricted", "sourcing": "화장품책임판매업 등록 필요", "aliases": ["데오드란트시트", "바디시트", "사라사라", "ボディシート"] },
+      { "name": "우타마로 세탁비누", "regulation": "restricted", "sourcing": "생활화학제품 안전확인 대상", "aliases": ["우타마로", "ウタマロ", "utamaro"] },
+      { "name": "써모스 텀블러", "regulation": "restricted", "sourcing": "식품접촉 → 식약처 기구·용기 수입신고 대상", "aliases": ["써모스", "텀블러", "サーモス", "thermos"] },
+      { "name": "도시락통 (벤토바코)", "regulation": "restricted", "sourcing": "식품접촉 → 식약처 기구·용기 수입신고 대상", "aliases": ["도시락통", "벤토박스", "弁当箱"] }
+    ],
+    "_매장/브랜드(아이템 아님)": [
+      { "name": "무인양품", "type": "brand", "regulation": "n/a", "aliases": ["무인양품", "무지", "無印良品", "muji"] },
+      { "name": "다이소 일본", "type": "brand", "regulation": "n/a", "aliases": ["일본다이소", "다이소재팬", "daiso japan"] },
+      { "name": "니토리", "type": "brand", "regulation": "n/a", "aliases": ["니토리", "ニトリ", "nitori"] },
+      { "name": "돈키호테 PB", "type": "brand", "regulation": "n/a", "aliases": ["정열가격", "情熱価格", "돈키pb"] }
     ]
   }
 }

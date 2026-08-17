@@ -4,8 +4,16 @@
 JapanHaulCrawler가 뽑은 japan_haul_videos_*.csv를 읽어서 계정 단위로 집계하고,
 섭외 점수로 정렬한 뒤 계정마다 개인화된 DM 초안을 만들어 CSV로 떨궈줍니다.
 
-  일본어 캡션 비중이 높은 계정 -> 현지 소싱/협업 트랙 (일본어 DM)
-  한국어 캡션 계정            -> 제휴/커미션 트랙 (한국어 DM)
+대상은 전부 '일본 다녀온 한국 인플루언서'입니다. 팔로워가 한국인이라
+그대로 구매대행 사이트의 고객이 됩니다. 제안은 제휴/커미션 하나입니다.
+
+소싱은 인플루언서에게 하는 게 아닙니다. 도매처(NETSEA, SUPER DELIVERY,
+제조사 대리점)에서 합니다. 일본어 계정은 팔로워가 일본인이라 우리 고객이
+아니므로 기본적으로 걸러냅니다.
+
+예외로 '일본 거주'가 확인되는 한국 계정은 소싱 파트너를 겸할 수 있어
+거주추정 컬럼으로 따로 표시합니다. 단 지역명(도쿄/오사카)은 여행 게시물이면
+전부 나오므로 판정 신호로 쓰지 않습니다.
 
 ※ 이 도구는 발송하지 않습니다. 초안만 만듭니다.
    인스타그램은 자동 대량 DM을 약관으로 금지하며, 실제로 몇 시간 안에
@@ -14,7 +22,7 @@ JapanHaulCrawler가 뽑은 japan_haul_videos_*.csv를 읽어서 계정 단위로
 
 사용 예:
     python OutreachBuilder.py --videos results/japan_haul/japan_haul_videos_20260817_1530.csv
-    python OutreachBuilder.py --videos ... --track jp --top 50
+    python OutreachBuilder.py --videos ... --only-resident --top 50
 """
 
 from __future__ import annotations
@@ -42,6 +50,14 @@ TIERS = [
     (0, "나노"),
 ]
 
+# '일본에 살고 있다'는 신호. 이런 계정은 소싱 파트너를 겸할 수 있습니다.
+# 지역명(도쿄/오사카 등)은 여행 게시물이면 전부 나오므로 넣으면 안 됩니다.
+RESIDENT_SIGNALS = [
+    "일본살이", "일본생활", "일본거주", "재팬라이프", "일본에서살", "일본산다",
+    "워홀", "워킹홀리데이", "유학중", "일본유학", "주재원",
+    "배대지", "직구대행", "구매대행", "현지배송",
+]
+
 
 def detect_lang(text: str) -> str:
     """캡션의 가나/한글 비중으로 계정 언어를 추정합니다."""
@@ -50,6 +66,11 @@ def detect_lang(text: str) -> str:
     if kana == 0 and hangul == 0:
         return "en"
     return "ja" if kana > hangul else "ko"
+
+
+def is_resident(text: str) -> bool:
+    """일본 거주로 보이는 한국 계정인지. 소싱 파트너 겸업 제안을 붙일 때 씁니다."""
+    return any(sig in (text or "") for sig in RESIDENT_SIGNALS)
 
 
 def tier_of(avg_views: float) -> str:
@@ -113,6 +134,7 @@ class OutreachBuilder:
                     "username": username,
                     "프로필": f"https://www.instagram.com/{username}/",
                     "추정언어": detect_lang(captions),
+                    "거주추정": "일본거주" if is_resident(captions) else "",
                     "수집_게시물수": len(g),
                     "아이템_언급_게시물수": matched_posts,
                     "평균_조회수": round(avg_views),
@@ -143,13 +165,17 @@ class OutreachBuilder:
 
         relevance = agg["아이템_언급_게시물수"] / agg["수집_게시물수"].replace(0, 1)
 
-        agg["섭외점수"] = (
+        base = (
             0.35 * pct(agg["평균_조회수"])
             + 0.30 * pct(agg["참여율_%"])
             + 0.20 * relevance
             + 0.15 * pct(agg["판매가능_아이템수"])
         ) * 100
-        agg["섭외점수"] = agg["섭외점수"].round(1)
+
+        # 일본 거주가 확인되면 소싱 파트너를 겸할 수 있어 소폭 가산.
+        bonus = (agg["거주추정"] == "일본거주").astype(float) * 8.0
+
+        agg["섭외점수"] = (base + bonus).clip(0, 100).round(1)
         return agg.sort_values("섭외점수", ascending=False).reset_index(drop=True)
 
     # ------------------------------------------------------------------ #
@@ -158,51 +184,48 @@ class OutreachBuilder:
         items = row["판매가능_아이템"] or row["다루는_아이템"] or "일본 쇼핑 아이템"
         first_item = items.split(",")[0].strip()
 
-        if row["추정언어"] == "ja":
-            # 현지 소싱/협업 트랙 — 제품명을 일본어 표기로 바꿔서 넣습니다.
-            jp_item = self.jp_name.get(first_item, first_item)
-            return (
-                f"はじめまして、韓国で日本商品の購買代行サイトを運営している{self.brand}と申します。\n"
-                f"「{jp_item}」を紹介されていたリール（{row['대표_영상']}）を拝見してご連絡しました。\n"
-                f"韓国では{jp_item}のような日本の生活雑貨の需要が非常に高く、"
-                f"現地での商品ソーシングとコンテンツ制作でご一緒できないかと考えています。\n"
-                f"・現地買い付けのサポート\n"
-                f"・成果報酬型のアフィリエイト（売上の◯%）\n"
-                f"ご興味があればお返事いただけると嬉しいです。よろしくお願いいたします。"
-            )
-
-        # 제휴/커미션 트랙 (한국 계정)
-        return (
+        dm = (
             f"안녕하세요 {row['username']}님, 일본 상품 구매대행 사이트를 운영하는 {self.brand}입니다.\n"
             f"'{first_item}' 소개해주신 릴스({row['대표_영상']}) 잘 봤습니다. "
             f"조회수 {row['대표_영상_조회수']:,}회 나온 거 보고 연락드려요.\n"
-            f"저희가 현지에서 직접 소싱해서 {self.site} 에서 판매 중인데, "
-            f"{row['username']}님 콘텐츠와 결이 맞을 것 같습니다.\n"
+            f"팔로워분들이 '이거 어디서 사요?' 물어보실 것 같은데, "
+            f"저희가 현지에서 직접 소싱해서 {self.site} 에서 판매 중입니다.\n"
             f"・제휴 링크 커미션 (판매액의 ◯%)\n"
             f"・제품 무상 제공 후 콘텐츠 제작\n"
             f"둘 중 편한 방식으로 진행 가능합니다. 관심 있으시면 회신 부탁드려요!"
         )
 
+        # 일본 거주로 보이면 소싱 파트너 겸업 제안을 한 줄 덧붙입니다.
+        if row["거주추정"] == "일본거주":
+            dm += (
+                f"\n(덧) 일본에 계신 것 같은데, 원하시면 현지 매입 파트너도 함께 가능합니다. "
+                f"품목당 매입 대행 수수료가 커미션과 별도로 붙습니다."
+            )
+        return dm
+
     # ------------------------------------------------------------------ #
-    def run(self, track="all", top=None, output_dir="results/japan_haul"):
+    def run(self, only_resident=False, top=None, output_dir="results/japan_haul"):
         agg = self.score(self.aggregate())
         if agg.empty:
             print("[WARN] 집계할 계정이 없습니다.")
             return
 
-        if track == "jp":
-            agg = agg[agg["추정언어"] == "ja"]
-        elif track == "kr":
-            agg = agg[agg["추정언어"] == "ko"]
+        # 일본어 계정은 팔로워가 일본인이라 구매대행 고객이 아닙니다. 항상 제외.
+        dropped = int((agg["추정언어"] == "ja").sum())
+        agg = agg[agg["추정언어"] != "ja"]
+        if dropped:
+            print(f"[INFO] 일본어 계정 {dropped}개 제외 (팔로워가 우리 고객이 아님)")
+
+        if only_resident:
+            agg = agg[agg["거주추정"] == "일본거주"]
         if agg.empty:
-            print(f"[WARN] track={track} 에 해당하는 계정이 없습니다.")
+            print("[WARN] 조건에 해당하는 계정이 없습니다.")
             return
 
         agg = agg.reset_index(drop=True)
         if top:
             agg = agg.head(top)
 
-        agg["트랙"] = agg["추정언어"].map({"ja": "현지소싱/협업", "ko": "제휴/커미션"}).fillna("검토필요")
         agg["DM_초안"] = agg.apply(self.draft_dm, axis=1)
         # 발송 대장으로 그대로 쓰도록 상태 컬럼을 비워서 붙입니다.
         agg["발송일"] = ""
@@ -212,12 +235,13 @@ class OutreachBuilder:
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
-        path = out_dir / f"outreach_list_{track}_{stamp}.csv"
+        suffix = "resident" if only_resident else "all"
+        path = out_dir / f"outreach_list_{suffix}_{stamp}.csv"
         agg.to_csv(path, index=False, encoding="utf-8-sig")
 
         print(f"[저장] 섭외 리스트: {path} ({len(agg)}계정)")
         print(f"\n=== 섭외 우선순위 TOP {min(15, len(agg))} ===")
-        cols = ["username", "트랙", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
+        cols = ["username", "거주추정", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
         print(agg.head(15)[cols].to_string(index=False))
         print(
             f"\n[주의] 자동 발송 기능은 없습니다. 하루 10~20건씩 직접 보내세요.\n"
@@ -228,7 +252,8 @@ class OutreachBuilder:
 def main():
     parser = argparse.ArgumentParser(description="섭외 우선순위 리스트 + DM 초안 생성기")
     parser.add_argument("--videos", required=True, help="JapanHaulCrawler가 만든 japan_haul_videos_*.csv 경로")
-    parser.add_argument("--track", choices=["all", "jp", "kr"], default="all", help="jp=일본 현지, kr=한국 계정")
+    parser.add_argument("--only-resident", action="store_true",
+                        help="일본 거주로 보이는 계정만 (소싱 파트너 겸업 제안용)")
     parser.add_argument("--top", type=int, help="상위 N개만 출력")
     parser.add_argument("--brand", default="(브랜드명)")
     parser.add_argument("--site", default="(구매대행 사이트 URL)")
@@ -236,7 +261,7 @@ def main():
     args = parser.parse_args()
 
     OutreachBuilder(args.videos, brand=args.brand, site=args.site).run(
-        track=args.track, top=args.top, output_dir=args.output
+        only_resident=args.only_resident, top=args.top, output_dir=args.output
     )
 
 
