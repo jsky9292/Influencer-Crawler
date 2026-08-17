@@ -153,3 +153,42 @@ osaka_life_kr 일본거주 마이크로   30,000   9.67          2  78.0
 4. **NETSEA / SUPER DELIVERY 사업자 가입** → 후보 품목 도매 단가 확보
 5. 단가가 나온 품목만 사이트에 올림
 6. `OutreachBuilder`로 한국 인플루언서 제휴 시작 (상위 점수순, 하루 10~20건)
+
+---
+
+## 7. 토큰 없이 계정 뽑기 — `PostResolver.py`
+
+Apify 토큰도 IG 세션도 없을 때 쓰는 무료 경로입니다.
+인스타는 로그인 없이 데이터를 안 주지만, **링크 미리보기용 og: 메타태그는
+크롤러 User-Agent에 그대로 내줍니다.**
+
+```
+og:description = "10K likes, 34 comments - nowistravel on November 12, 2024: "캡션…""
+```
+
+여기서 계정명 / 좋아요 / 댓글 / 날짜 / 캡션(일부)을 뽑습니다.
+
+```bash
+# 1) 구글에서 site:instagram.com 으로 게시물 URL을 모아 urls.txt 에 저장
+# 2) 해석
+python PostResolver.py --urls urls.txt --out results/japan_haul/resolved.csv
+# 3) 섭외 리스트 생성 (OutreachBuilder가 아이템 매칭을 자동 보강)
+python OutreachBuilder.py --videos results/japan_haul/resolved.csv
+```
+
+### 이 경로의 한계
+
+| 항목 | 상태 |
+|---|---|
+| 계정명 / 좋아요 / 댓글 / 날짜 | ✅ 정확 |
+| **조회수** | ❌ 없음 → 점수가 좋아요·댓글 기준으로 자동 전환 |
+| **캡션** | ⚠️ **잘려서 옴** (평균 200자). 아이템 매칭률이 크게 떨어짐 |
+| 검색/발견 | ❌ 없음. URL을 구글 검색 등으로 따로 구해와야 함 |
+
+실측: 게시물 19건 해석 시 계정·지표는 19/19 정확했지만,
+캡션 절단 때문에 **아이템 매칭은 3건에서만 성공**했습니다.
+
+→ **계정 발굴에는 충분하지만, 아이템 수요 분석에는 부족합니다.**
+   아이템 랭킹까지 필요하면 Apify 백엔드로 전체 캡션을 받아야 합니다.
+
+요청을 몰아치면 429가 납니다. `--sleep` 기본값(3초)을 줄이지 마세요.

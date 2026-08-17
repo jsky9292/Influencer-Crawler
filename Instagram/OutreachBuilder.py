@@ -59,6 +59,11 @@ RESIDENT_SIGNALS = [
 ]
 
 
+def _norm(text: str) -> str:
+    """아이템 매칭용 정규화. JapanHaulCrawler.normalize와 같은 규칙입니다."""
+    return re.sub(r"[\s\-_·・.,!?~()\[\]#]+", "", (text or "").lower())
+
+
 def detect_lang(text: str) -> str:
     """캡션의 가나/한글 비중으로 계정 언어를 추정합니다."""
     kana = len(KANA_RE.findall(text or ""))
@@ -90,12 +95,40 @@ class OutreachBuilder:
         self.regulation = {}
         # 일본어 DM에 한글 제품명을 넣으면 안 읽힙니다. 별칭에서 일본어 표기를 뽑아둡니다.
         self.jp_name = {}
+        self.alias_map = {}
         for items in config.get("categories", {}).values():
             for item in items:
+                if item.get("type") == "brand":
+                    continue
                 name = item["name"]
                 self.regulation[name] = item.get("regulation", "unknown")
                 jp = next((a for a in item.get("aliases", []) if JP_RE.search(a)), None)
                 self.jp_name[name] = jp or name
+                for alias in item.get("aliases", []):
+                    self.alias_map[_norm(alias)] = name
+
+        self._ensure_columns()
+
+    def _ensure_columns(self):
+        """
+        PostResolver 출력처럼 아이템 매칭이 안 된 CSV도 그대로 받도록 보강합니다.
+        (JapanHaulCrawler 출력에는 이미 있으므로 건드리지 않습니다.)
+        """
+        for col, default in (("view_count", 0), ("like_count", 0), ("comment_count", 0), ("caption", "")):
+            if col not in self.df.columns:
+                self.df[col] = default
+
+        if "매칭_아이템" in self.df.columns:
+            return
+        matched, sellable = [], []
+        for caption in self.df["caption"].fillna(""):
+            norm = _norm(str(caption))
+            hits = {name for alias, name in self.alias_map.items() if alias and alias in norm}
+            matched.append(", ".join(sorted(hits)))
+            sellable.append(", ".join(sorted(n for n in hits if self.regulation.get(n) != "blocked")))
+        self.df["매칭_아이템"] = matched
+        self.df["판매가능_아이템"] = sellable
+        self.df["아이템_개수"] = [len(m.split(", ")) if m else 0 for m in matched]
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -126,7 +159,9 @@ class OutreachBuilder:
             total_engagement = float((likes + comments).sum())
             total_views = float(views.sum())
 
-            best = g.sort_values("view_count", ascending=False).iloc[0]
+            # 조회수가 없는 경로(PostResolver)에서는 좋아요로 대표 게시물을 고릅니다.
+            sort_key = "view_count" if views.sum() else "like_count"
+            best = g.sort_values(sort_key, ascending=False).iloc[0]
             matched_posts = int((g.get("아이템_개수", pd.Series([0] * len(g))).fillna(0) > 0).sum())
 
             rows.append(
@@ -142,7 +177,11 @@ class OutreachBuilder:
                     "평균_좋아요": round(float(likes.mean())),
                     "평균_댓글": round(float(comments.mean())),
                     # 조회수 대비 참여율. 팔로워 수를 못 받으므로 이걸 대용치로 씁니다.
+                    # PostResolver 경로는 조회수가 없어 0이 되고, 아래에서 댓글/좋아요로 대체합니다.
                     "참여율_%": round(total_engagement / total_views * 100, 2) if total_views else 0.0,
+                    "댓글_좋아요_비_%": round(float(comments.sum()) / float(likes.sum()) * 100, 2)
+                    if likes.sum()
+                    else 0.0,
                     "티어": tier_of(avg_views),
                     "다루는_아이템": ", ".join(sorted(items)),
                     "판매가능_아이템": ", ".join(sorted(sellable)),
@@ -165,9 +204,17 @@ class OutreachBuilder:
 
         relevance = agg["아이템_언급_게시물수"] / agg["수집_게시물수"].replace(0, 1)
 
+        # 조회수가 하나도 없으면(PostResolver 경로) 좋아요를 도달력 지표로,
+        # 댓글/좋아요 비율을 참여도 지표로 대체합니다.
+        if agg["총_조회수"].sum() == 0:
+            reach, engage = agg["평균_좋아요"], agg["댓글_좋아요_비_%"]
+            print("[INFO] 조회수 데이터 없음 → 좋아요/댓글 기준으로 점수 계산")
+        else:
+            reach, engage = agg["평균_조회수"], agg["참여율_%"]
+
         base = (
-            0.35 * pct(agg["평균_조회수"])
-            + 0.30 * pct(agg["참여율_%"])
+            0.35 * pct(reach)
+            + 0.30 * pct(engage)
             + 0.20 * relevance
             + 0.15 * pct(agg["판매가능_아이템수"])
         ) * 100
@@ -241,7 +288,9 @@ class OutreachBuilder:
 
         print(f"[저장] 섭외 리스트: {path} ({len(agg)}계정)")
         print(f"\n=== 섭외 우선순위 TOP {min(15, len(agg))} ===")
-        cols = ["username", "거주추정", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
+        cols = ["username", "거주추정", "평균_좋아요", "평균_댓글", "댓글_좋아요_비_%", "판매가능_아이템수", "섭외점수"] \
+            if agg["총_조회수"].sum() == 0 else \
+            ["username", "거주추정", "티어", "평균_조회수", "참여율_%", "판매가능_아이템수", "섭외점수"]
         print(agg.head(15)[cols].to_string(index=False))
         print(
             f"\n[주의] 자동 발송 기능은 없습니다. 하루 10~20건씩 직접 보내세요.\n"
